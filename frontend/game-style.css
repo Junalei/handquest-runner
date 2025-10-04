@@ -1,0 +1,12 @@
+.game-container {
+  display: flex;  /* Side-by-side layout */
+  gap: 20px;      /* Space between game and camera */
+}
+
+#game-wrapper {
+  flex: 0 0 800px;  /* Fixed 800px for game */
+}
+
+.camera-wrapper {
+  flex: 1;  /* Takes remaining space */
+}

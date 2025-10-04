@@ -1,24 +1,52 @@
-<!-- For testing ng mediapipe -->
-<!-- Dito mo lagay yung code for the phaser game -->
+<!-- For testing ng mediapipe and Phaser -->
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HandQuest Runner - Game</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="game-style.css">
+  
+  <!-- Phaser 3 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  
   <!-- MediaPipe dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
-<body class="center-screen">
-  <h2>🎮 HandQuest Runner — Camera Test</h2>
-   <div class="video-container">
-    <video id="input_video" width="640" height="480" autoplay playsinline></video>
-    <canvas id="output_canvas" width="640" height="480"></canvas>
+<body>
+  <!-- Main container: game left, camera right -->
+  <div class="game-container">
+    <!-- Left side: Phaser game -->
+    <div id="game-wrapper">
+      <div id="phaser-game"></div>
+    </div>
+    
+    <!-- Right side: Camera feed -->
+    <div class="camera-wrapper">
+      <h3>📹 Hand Controls</h3>
+      <div class="video-container">
+        <video id="input_video" autoplay playsinline></video>
+        <canvas id="output_canvas"></canvas>
+      </div>
+      <div class="controls-info">
+        <p><strong>Gestures:</strong></p>
+        <p>🖐️ Open Palm = Jump</p>
+        <p>✊ Closed Fist = Duck</p>
+        <p>☝️ Index Finger = Left</p>
+        <p>✌️ Peace Sign = Right</p>
+      </div>
+    </div>
   </div>
-  <!-- Gesture detection -->
+  
+  <!-- Load hand tracking first -->
   <script src="hand-tracker.js"></script>
+  
+  <!-- Load Phaser game -->
+  <script src="game.js"></script>
 </body>
 </html>
