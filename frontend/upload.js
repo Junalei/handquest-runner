@@ -127,7 +127,7 @@
       }
     } catch (err) {
       console.warn('Upload failed (network or CORS). Falling back to local store.', err);
-      await fallbackLocalStore(file, 'Upload failed; saved locally.');
+      await fallbackLocalStore(file, 'Upload failed; saved locally (Wala pa AI).');
       playBtn.disabled = false;
       playBtn.classList.add('ready');
     } finally {
