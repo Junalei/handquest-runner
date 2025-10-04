@@ -1,6 +1,3 @@
-// upload.js
-// Put this in frontend/upload.js
-
 (() => {
   // CONFIG
   const backendUrl = 'http://localhost:8000/generate?n=10'; // change if needed
