@@ -1,5 +1,5 @@
 <!-- For testing ng mediapipe -->
- 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,10 +14,11 @@
 </head>
 <body class="center-screen">
   <h2>🎮 HandQuest Runner — Camera Test</h2>
-  <video id="input_video" width="640" height="480" autoplay playsinline></video>
-  <canvas id="output_canvas" width="640" height="480"></canvas>
-
+   <div class="video-container">
+    <video id="input_video" width="640" height="480" autoplay playsinline></video>
+    <canvas id="output_canvas" width="640" height="480"></canvas>
+  </div>
   <!-- Gesture detection -->
-  <script src="mediapipe.js"></script>
+  <script src="hand-tracker.js"></script>
 </body>
 </html>
