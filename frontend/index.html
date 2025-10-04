@@ -1,41 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HandQuest Runner - Camera Test</title>
-  <style>
-    body {
-      background: #111;
-      color: #eee;
-      font-family: system-ui, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
-    h2 { margin-bottom: 10px; }
-    video, canvas {
-      display: block;
-      border: 2px solid #333;
-      border-radius: 8px;
-      margin-top: 10px;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HandQuest Runner - Start</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <h2>🖐️ HandQuest Runner — Camera Test</h2>
-  <video id="input_video" width="640" height="480" autoplay playsinline></video>
-  <canvas id="output_canvas" width="640" height="480"></canvas>
+<body class="center-screen">
+  <div class="container">
+    <h1>🖐️ HandQuest Runner</h1>
+    <p>An Educational Hand-Controlled MCQ Runner Game</p>
+    <button id="startBtn">Start</button>
+  </div>
 
-  <!-- MediaPipe dependencies -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-
-  <!-- Your script -->
-  <script src="mediapipe.js"></script>
+  <script>
+    document.getElementById("startBtn").addEventListener("click", () => {
+      window.location.href = "upload.html";
+    });
+  </script>
 </body>
 </html>
