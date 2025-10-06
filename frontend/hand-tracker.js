@@ -116,9 +116,9 @@ function onResults(results) {
     canvasCtx.strokeText(`${handLabel} Hand`, 20, 40);
     canvasCtx.fillText(`${handLabel} Hand`, 20, 40);
     
-    canvasCtx.fillStyle = "lime";
-    canvasCtx.strokeText(`Action: ${window.currentAction.toUpperCase()}`, 20, 75);
-    canvasCtx.fillText(`Action: ${window.currentAction.toUpperCase()}`, 20, 75);
+    // canvasCtx.fillStyle = "lime";
+    // canvasCtx.strokeText(`Action: ${window.currentAction.toUpperCase()}`, 20, 75);
+    // canvasCtx.fillText(`Action: ${window.currentAction.toUpperCase()}`, 20, 75);
 
   } else {
     // No hand detected - reset
@@ -133,6 +133,9 @@ function onResults(results) {
     lastAction = "none";
     activeHand = null; // Reset so next hand can be detected
   }
+  // Inside onResults() function (near bottom)
+  document.getElementById("actionDisplay").innerText = `Action: ${window.currentAction.toUpperCase()}`;
+
 
   canvasCtx.restore();
 }
