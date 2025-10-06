@@ -60,61 +60,50 @@ function create() {
 
 // ====== Update loop ======
 function update(time, delta) {
-  // Simulate forward motion
+  // Background motion
   background.tilePositionY -= 5;
   background.tilePositionX += 0.2;
 
   const action = (window.currentAction || "none").toLowerCase();
+  const isNewGesture = action !== lastGesture;
 
-  // LEFT / RIGHT lane handling (edge-trigger + hold-repeat)
-  if (action === "left" || action === "right") {
-    const now = time;
-    const isNewGesture = action !== lastGesture;
-    const canRepeat = (now - lastMoveTime) >= MOVE_COOLDOWN;
-
-    if (isNewGesture || canRepeat) {
-      if (action === "left" && currentLane > 0) {
-        currentLane--;
-        moveToLane(this);
-        lastMoveTime = now;
-      } else if (action === "right" && currentLane < lanes.length - 1) {
-        currentLane++;
-        moveToLane(this);
-        lastMoveTime = now;
-      }
-    }
+  // --- Move left ---
+  if (isNewGesture && action === "left" && currentLane > 0) {
+    currentLane--;
+    moveToLane(this);
   }
 
-  // Jump — only when starting gesture and grounded
-  if (action === "jump") {
-    const isNewGesture = action !== lastGesture;
-    if (isNewGesture && player.body.touching.down && !isJumping) {
-      isJumping = true;
-      player.setVelocityY(-500);
-    }
+  // --- Move right ---
+  if (isNewGesture && action === "right" && currentLane < lanes.length - 1) {
+    currentLane++;
+    moveToLane(this);
   }
 
-  // Duck — one-shot scaling
-  if (action === "duck") {
-    const isNewGesture = action !== lastGesture;
-    if (isNewGesture && !isDucking) {
-      isDucking = true;
-      player.setScale(1, 0.5);
-      setTimeout(() => {
-        player.setScale(1, 1);
-        isDucking = false;
-      }, 700);
-    }
+  // --- Jump ---
+  if (isNewGesture && action === "jump" && player.body.touching.down && !isJumping) {
+    isJumping = true;
+    player.setVelocityY(-500);
   }
 
-  // Reset jump when landed
+  // --- Duck ---
+  if (isNewGesture && action === "duck" && !isDucking) {
+    isDucking = true;
+    player.setScale(1, 0.5);
+    setTimeout(() => {
+      player.setScale(1, 1);
+      isDucking = false;
+    }, 700);
+  }
+
+  // Reset jump flag when player lands
   if (player.body.touching.down) {
     isJumping = false;
   }
 
-  // Store gesture for next frame
+  // Save gesture for next frame
   lastGesture = action;
 }
+
 
 // ====== Helper: Smooth lane movement ======
 function moveToLane(scene) {
