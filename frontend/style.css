@@ -4,63 +4,74 @@ body {
   font-family: system-ui, sans-serif;
   margin: 0;
   padding: 0;
+  overflow: hidden;
 }
 
-.center-screen {
+/* Layout wrapper — game left, camera right */
+.game-layout {
   display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  gap: 20px;
+  background: #0e0e0e;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Game box */
+.game-area {
+  flex: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 3px solid #00cc88;
+  border-radius: 10px;
+  background: #111;
+  height: 480px;
+}
+
+/* Camera box */
+.camera-area {
+  flex: 1;
+  background: #1c1c1c;
+  border-radius: 10px;
+  padding: 15px;
+  text-align: center;
+  box-shadow: 0 0 10px rgba(0,0,0,0.4);
+  color: #eee;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  flex-direction: column;
-  text-align: center;
 }
 
-.container {
-  background: #1c1c1c;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
-  max-width: 400px;
+/* Container to hold video + overlay */
+.camera-area div {
+  position: relative; /* ✅ Keeps the overlay anchored here */
+  width: 320px;
+  height: 240px;
 }
 
-button {
-  background: #4caf50;
-  border: none;
-  padding: 10px 20px;
-  color: white;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: 0.3s;
+/* Hide raw video background */
+#input_video {
+  display: none; /* MediaPipe still uses it */
 }
 
-button:hover {
-  background: #43a047;
-}
-
-button:disabled {
-  background: #555;
-  cursor: not-allowed;
-}
-
-button.ready {
-  background: #00cc88;
-}
-
-.drop-area {
-  border: 2px dashed #555;
-  padding: 30px;
+/* Show only annotated camera view */
+#output_canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320px;
+  height: 240px;
   border-radius: 10px;
-  margin: 20px 0;
-  cursor: pointer;
-  transition: 0.3s;
+  border: 2px solid #00cc88;
 }
 
-.drop-area.highlight {
-  border-color: #00cc88;
-  background-color: rgba(0, 255, 136, 0.1);
+/* Action text */
+#actionDisplay {
+  color: #00ff99;
+  font-size: 18px;
+  margin-top: 10px;
 }
-
-.hidden {
-  display: none;
-}
-
