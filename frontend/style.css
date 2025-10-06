@@ -21,19 +21,13 @@ body {
 
 /* Game box */
 .game-area {
-  flex: 2;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   border: 3px solid #00cc88;
   border-radius: 10px;
-  background: #111;
-  height: 480px;
 }
 
 /* Camera box */
 .camera-area {
-  flex: 1;
+  /* flex: 1; */
   background: #1c1c1c;
   border-radius: 10px;
   padding: 15px;
@@ -48,7 +42,7 @@ body {
 
 /* Container to hold video + overlay */
 .camera-area div {
-  position: relative; /* ✅ Keeps the overlay anchored here */
+  position: relative;
   width: 320px;
   height: 240px;
 }
