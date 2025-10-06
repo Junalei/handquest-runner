@@ -3,6 +3,10 @@ const config = {
   type: Phaser.AUTO,
   width: 640,
   height: 480,
+   scale: {
+        mode: Phaser.Scale.FIT, // Use FIT mode to scale the game to fit the container
+        autoCenter: Phaser.Scale.FIT // Center the game in both horizontal and vertical directions
+    },
   backgroundColor: "#202020",
   parent: "game-container",
   physics: {
