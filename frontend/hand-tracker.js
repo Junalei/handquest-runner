@@ -6,6 +6,7 @@ const canvasCtx = canvasElement.getContext('2d');
 // ====== Global variables ======
 window.currentAction = "none"; // 'jump', 'left', 'right', 'duck'
 let lastAction = "none";
+let activeHand = null;
 
 // ====== Initialize MediaPipe Hands ======
 const hands = new Hands({
@@ -13,7 +14,7 @@ const hands = new Hands({
 });
 
 hands.setOptions({
-  maxNumHands: 2, // ✅ detect both hands
+  maxNumHands: 1,
   modelComplexity: 0,
   minDetectionConfidence: 0.6,
   minTrackingConfidence: 0.6,
@@ -67,68 +68,93 @@ function detectGesture(fingers) {
 }
 
 /**
- * Main onResults handler
+ * Main onResults handler - NOW ONLY PROCESSES FIRST DETECTED HAND
  */
 function onResults(results) {
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-  if (results.multiHandLandmarks && results.multiHandedness) {
-    for (let i = 0; i < results.multiHandLandmarks.length; i++) {
-      const handLabel = results.multiHandedness[i].label; // "Left" or "Right"
-      const isRightHand = handLabel === "Right";
-      const landmarks = results.multiHandLandmarks[i];
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    // ✅ ONLY USE THE FIRST HAND DETECTED (index 0)
+    const landmarks = results.multiHandLandmarks[0];
+    const handLabel = results.multiHandedness[0].label; // "Left" or "Right"
+    const isRightHand = handLabel === "Right";
 
-      // Draw hand landmarks
-      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF88', lineWidth: 2 });
-      drawLandmarks(canvasCtx, landmarks, { color: '#FF0066', lineWidth: 1 });
-
-      // Gesture detection
-      const fingers = getFingersUp(landmarks, isRightHand);
-      const action = detectGesture(fingers);
-
-      // Trigger only when gesture changes
-      if (action !== lastAction && action !== "none") {
-        console.log(`🎮 ${handLabel.toUpperCase()} HAND Action: ${action.toUpperCase()}`);
-        lastAction = action;
-        window.currentAction = action;
-      }
-
-      // Display current action on screen
-      canvasCtx.fillStyle = "yellow";
-      canvasCtx.font = "24px Arial";
-      canvasCtx.fillText(`Action: ${window.currentAction.toUpperCase()}`, 20, 40);
+    // Lock to first detected hand
+    if (!activeHand) {
+      activeHand = handLabel;
+      console.log(`🖐️ Locked to ${handLabel} hand`);
     }
+
+    // Draw hand landmarks
+    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { 
+      color: '#00FF88', 
+      lineWidth: 2 
+    });
+    drawLandmarks(canvasCtx, landmarks, { 
+      color: '#FF0066', 
+      lineWidth: 1 
+    });
+
+    // Gesture detection
+    const fingers = getFingersUp(landmarks, isRightHand);
+    const action = detectGesture(fingers);
+
+    // Update action only when gesture changes
+    if (action !== lastAction && action !== "none") {
+      console.log(`🎮 ${handLabel} HAND → ${action.toUpperCase()}`);
+      lastAction = action;
+      window.currentAction = action;
+    }
+
+    // Display current action on screen
+    canvasCtx.fillStyle = "yellow";
+    canvasCtx.font = "28px Arial";
+    canvasCtx.strokeStyle = "black";
+    canvasCtx.lineWidth = 3;
+    canvasCtx.strokeText(`${handLabel} Hand`, 20, 40);
+    canvasCtx.fillText(`${handLabel} Hand`, 20, 40);
+    
+    canvasCtx.fillStyle = "lime";
+    canvasCtx.strokeText(`Action: ${window.currentAction.toUpperCase()}`, 20, 75);
+    canvasCtx.fillText(`Action: ${window.currentAction.toUpperCase()}`, 20, 75);
+
   } else {
-    // No hand detected
+    // No hand detected - reset
     canvasCtx.fillStyle = "white";
-    canvasCtx.font = "20px Arial";
+    canvasCtx.font = "24px Arial";
+    canvasCtx.strokeStyle = "black";
+    canvasCtx.lineWidth = 3;
+    canvasCtx.strokeText("No hand detected", 20, 40);
     canvasCtx.fillText("No hand detected", 20, 40);
+    
     window.currentAction = "none";
+    lastAction = "none";
+    activeHand = null; // Reset so next hand can be detected
   }
 
   canvasCtx.restore();
 }
 
-// ====== Keyboard Controls ======
+// ====== Keyboard Controls (Backup) ======
 document.addEventListener("keydown", (event) => {
   switch (event.key) {
     case "ArrowUp":
       window.currentAction = "jump";
-      console.log("🎮 KEYBOARD Action: JUMP");
+      console.log("⌨️ KEYBOARD → JUMP");
       break;
     case "ArrowDown":
       window.currentAction = "duck";
-      console.log("🎮 KEYBOARD Action: DUCK");
+      console.log("⌨️ KEYBOARD → DUCK");
       break;
     case "ArrowLeft":
       window.currentAction = "left";
-      console.log("🎮 KEYBOARD Action: LEFT");
+      console.log("⌨️ KEYBOARD → LEFT");
       break;
     case "ArrowRight":
       window.currentAction = "right";
-      console.log("🎮 KEYBOARD Action: RIGHT");
+      console.log("⌨️ KEYBOARD → RIGHT");
       break;
   }
 });
@@ -136,3 +162,10 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("keyup", () => {
   window.currentAction = "none"; // stop action when key is released
 });
+
+console.log("✅ Hand tracker initialized");
+console.log("🖐️ Show ONE hand (left or right) to control");
+console.log("   ☝️ Index finger = LEFT");
+console.log("   ✌️ Peace sign = RIGHT");
+console.log("   🖐️ Open palm = JUMP");
+console.log("   ✊ Closed fist = DUCK");
