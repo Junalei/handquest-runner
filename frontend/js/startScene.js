@@ -1,4 +1,3 @@
-// frontend/js/startScene.js
 // StartScene - preloads bg.png, start.png, cat.png and displays Start Page UI
 // Title is split into two lines (HANDQUEST / RUNNER), start button scaled smaller,
 // and cat sprite positioned lower-left of the start button.
@@ -116,7 +115,7 @@ class StartScene extends Phaser.Scene {
     // Click: redirect to upload.html
     startBtn.on('pointerdown', () => {
       // if (this.sound.get('btnClick')) this.sound.play('btnClick');
-      window.location.href = '/upload.html';
+      window.location.href = '/upload';
     });
 
     // --- Cat sprite positioned slightly lower-left of the start button ---
@@ -133,7 +132,7 @@ class StartScene extends Phaser.Scene {
     // subtle bob for cat
     this.tweens.add({
       targets: cat,
-      y: catY - 6,
+      y: `-=${10}`, // move up by 6 px relative and back
       ease: 'Sine.easeInOut',
       duration: 1400,
       yoyo: true,
@@ -158,8 +157,8 @@ class StartScene extends Phaser.Scene {
         startBtn.setPosition(this.scale.width / 2, newBtnY);
 
         // Adjust cat position relative to new button placement
-        const newCatOffsetX = - (startBtn.displayWidth * 0.64);
-        const newCatOffsetY = (startBtn.displayHeight * 0.35);
+        const newCatOffsetX = - (startBtn.displayWidth * 0.80);
+        const newCatOffsetY = (startBtn.displayHeight * 0.80);
         cat.setPosition(startBtn.x + newCatOffsetX, startBtn.y + newCatOffsetY);
     };
 

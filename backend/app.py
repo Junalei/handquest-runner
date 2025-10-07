@@ -10,6 +10,10 @@ app = Flask(
 def start_page():
     return render_template('index.html')
 
+@app.route('/upload')
+def upload_page():
+    return render_template('upload.html')
+
 # Serve CSS, JS, and assets correctly
 @app.route('/<path:filename>')
 def serve_static_files(filename):
