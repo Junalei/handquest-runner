@@ -1,22 +1,48 @@
+<!-- frontend/pages/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>HandQuest Runner - Start</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body class="center-screen">
-  <div class="container">
-    <h1>🖐️ HandQuest Runner</h1>
-    <p>An Educational Hand-Controlled MCQ Runner Game</p>
-    <button id="startBtn">Start</button>
-  </div>
 
-  <script>
-    document.getElementById("startBtn").addEventListener("click", () => {
-      window.location.href = "upload.html";
-    });
-  </script>
+  <!-- Tailwind compiled CSS (output.css) -->
+  <link rel="stylesheet" href="/css/output.css">
+
+  <!-- Pixel font for retro look (Press Start 2P) -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <!-- Phaser 3 via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+
+  <!-- StartScene (Phaser scene) -->
+  <script src="/js/startScene.js" defer></script>
+  <!-- main.js initializes the Phaser game using StartScene -->
+  <script src="/js/main.js" defer></script>
+
+  <style>
+    /* Ensures page background (behind canvas) uses the same theme */
+    body {
+      margin: 0;
+      font-family: 'Press Start 2P', monospace;
+      background: #0f172a; /* fallback dark background */
+    }
+    /* Ensure the canvas (game container) expands to a 16:9 area while centered */
+    #phaser-container {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <!-- Phaser will insert the canvas into this container -->
+  <div id="phaser-container" class="flex items-center justify-center">
+    <!-- fallback content -->
+    <noscript class="text-white">This game requires JavaScript to run.</noscript>
+  </div>
 </body>
 </html>
