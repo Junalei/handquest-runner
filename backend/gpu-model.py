@@ -1,4 +1,4 @@
-# TinyLlama MCQ Generator
+# GPU TinyLlama MCQ Generator - Enhanced with GPU Support (No Accelerate)
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
@@ -9,10 +9,8 @@ import json
 import re
 import os
 import random
+from collections import Counter
 
-# ========== FORCE CPU USAGE ==========
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-torch.set_num_threads(4)
 
 # ========== FASTAPI SETUP ==========
 app = FastAPI()
@@ -25,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ========== MODEL LOAD ==========
 print("Loading TinyLlama-1.1B-Chat...")
 model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
@@ -33,22 +32,158 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
+# Auto-detect device (GPU if available, else CPU)
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f"🎯 Using device: {device.upper()}")
+
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
-    torch_dtype=torch.float32,
-    device_map=None,
-    low_cpu_mem_usage=True
+    torch_dtype=torch.float16 if device == 'cuda' else torch.float32
 )
 
-model = model.to('cpu')
+model = model.to(device)
 model.eval()
 
-pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device='cpu')
-print("✓ Model loaded successfully")
+pipe = pipeline(
+    "text-generation", 
+    model=model, 
+    tokenizer=tokenizer, 
+    device=0 if device == 'cuda' else -1
+)
+print(f"✓ Model loaded successfully on {device.upper()}")
 
-# ========== HELPERS ==========
+
+# ========== NEW PREPROCESSING HELPERS ==========
+def remove_document_noise(text: str) -> str:
+    """Remove headers, footers, page numbers, and repetitive content"""
+    lines = text.split('\n')
+    cleaned_lines = []
+    
+    # Track line frequency to detect headers/footers (they repeat on every page)
+    line_freq = Counter(lines)
+    
+    for line in lines:
+        line_stripped = line.strip()
+        
+        # Skip empty lines
+        if not line_stripped:
+            continue
+        
+        # Skip page numbers (standalone numbers or "Page X" patterns)
+        if re.match(r'^(?:page\s*)?\d+(?:\s*of\s*\d+)?$', line_stripped, re.IGNORECASE):
+            continue
+        
+        # Skip very short lines (likely headers/footers)
+        if len(line_stripped) < 10:
+            continue
+        
+        # Skip lines that appear more than 3 times (likely headers/footers)
+        if line_freq[line] > 3:
+            continue
+        
+        # Skip common PDF artifacts
+        if any(artifact in line_stripped.lower() for artifact in ['copyright', '©', 'all rights reserved', 'confidential']):
+            continue
+        
+        cleaned_lines.append(line_stripped)
+    
+    return ' '.join(cleaned_lines)
+
+
+def score_sentence(sentence: str, term_freq: dict) -> float:
+    """Score sentence based on information density"""
+    words = sentence.split()
+    
+    if len(words) < 5:  # Too short
+        return 0.0
+    
+    # Count capitalized terms (likely important concepts)
+    cap_count = sum(1 for w in words if w and w[0].isupper() and len(w) > 2)
+    
+    # Count term occurrences
+    term_count = sum(term_freq.get(w.lower(), 0) for w in words)
+    
+    # Calculate density: important words / total words
+    density = (cap_count + term_count) / len(words)
+    
+    # Penalize very long sentences (harder to parse)
+    length_penalty = 1.0 if len(words) <= 25 else 0.7
+    
+    # Bonus for sentences with definitions ("is", "are", "has")
+    definition_bonus = 1.2 if any(pattern in sentence.lower() for pattern in [' is ', ' are ', ' has ', ' have ']) else 1.0
+    
+    return density * length_penalty * definition_bonus
+
+
+def rank_sentences(text: str, top_n: int = 15) -> str:
+    """Select most information-dense sentences"""
+    sentences = [s.strip() for s in re.split(r'[.!?]+', text) if len(s.strip()) > 20]
+    
+    if len(sentences) <= top_n:
+        return text
+    
+    # Build term frequency map
+    all_words = ' '.join(sentences).lower().split()
+    term_freq = Counter(all_words)
+    
+    # Score each sentence
+    scored = [(sent, score_sentence(sent, term_freq)) for sent in sentences]
+    
+    # Sort by score, keep top N
+    sorted_sents = sorted(scored, key=lambda x: x[1], reverse=True)
+    top_sentences = [s[0] for s in sorted_sents[:top_n]]
+    
+    return '. '.join(top_sentences) + '.'
+
+
+def selective_stopword_removal(text: str) -> str:
+    """Remove common stopwords while keeping important ones"""
+    # Light stopword list (aggressive removal can hurt comprehension)
+    stopwords = {'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
+                 'of', 'as', 'by', 'with', 'from', 'up', 'about', 'into', 'through', 'during'}
+    
+    words = text.split()
+    filtered = []
+    
+    for i, word in enumerate(words):
+        word_lower = word.lower()
+        
+        # Keep stopword if it's at the start of a sentence or near capitalized terms
+        if word_lower in stopwords:
+            if i == 0 or (i > 0 and words[i-1].endswith('.')):
+                filtered.append(word)
+            elif i < len(words) - 1 and words[i+1] and words[i+1][0].isupper():
+                filtered.append(word)
+            # Otherwise skip it
+        else:
+            filtered.append(word)
+    
+    return ' '.join(filtered)
+
+
+def preprocess_text(text: str) -> str:
+    """Main preprocessing pipeline"""
+    print("🧹 Preprocessing text...")
+    
+    # Step 1: Remove document noise
+    text = remove_document_noise(text)
+    print(f"   After noise removal: {len(text)} chars")
+    
+    # Step 2: Rank and select information-dense sentences
+    text = rank_sentences(text, top_n=20)
+    print(f"   After sentence ranking: {len(text)} chars")
+    
+    # Step 3: Light stopword removal
+    text = selective_stopword_removal(text)
+    print(f"   After stopword removal: {len(text)} chars")
+    
+    # Step 4: Apply character limit as safety
+    return text[:1500]
+
+
+# ========== ORIGINAL HELPERS (UPDATED) ==========
 def extract_text_from_pdf(pdf_path: str) -> str:
-    """Extract text from PDF"""
+    """Extract and preprocess text from PDF"""
     text = ""
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -60,7 +195,9 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         print(f"Error: {e}")
         return ""
     
-    return text.strip()[:1500]
+    # Apply preprocessing pipeline
+    return preprocess_text(text.strip())
+
 
 def extract_facts(text: str):
     """Extract key facts and terms from text"""
@@ -79,7 +216,6 @@ def extract_facts(text: str):
         if is_match:
             term = is_match.group(1).strip()
             description = is_match.group(2).strip()
-            # Take meaningful part of description (3-6 words)
             desc_words = description.split()[:6]
             description_short = ' '.join(desc_words).rstrip('.,;:')
             
@@ -111,18 +247,27 @@ def extract_facts(text: str):
     
     return {'facts': facts, 'terms': terms[:20]}
 
+
 def generate_mcqs_with_tinyllama(text: str, num_questions: int = 5):
-    """Generate MCQs with minimal prompting"""
+    """Generate MCQs with improved prompting"""
     
     prompt = f"""<|system|>
-You are a quiz creator.</s>
+You are a quiz creator. Generate questions in this exact format:
+
+Question 1: [question text]?
+A) [choice]
+B) [choice]
+C) [choice]
+Correct: A
+
+</s>
 <|user|>
-Create {num_questions} multiple choice questions from this text. Each question should have 3 answer choices (A, B, C).
+Create {num_questions} multiple choice questions from this text. Each question must have exactly 3 answer choices (A, B, C) and indicate the correct answer.
 
 Text:
 {text}
 
-Create {num_questions} questions:</s>
+Create {num_questions} questions now:</s>
 <|assistant|>
 """
     
@@ -133,7 +278,7 @@ Create {num_questions} questions:</s>
             response = pipe(
                 prompt,
                 max_new_tokens=800,
-                temperature=0.7,
+                temperature=0.6,
                 do_sample=True,
                 top_p=0.9,
                 repetition_penalty=1.3,
@@ -161,8 +306,9 @@ Create {num_questions} questions:</s>
         facts_data = extract_facts(text)
         return create_fallback_mcqs(facts_data, num_questions)
 
+
 def create_fallback_mcqs(facts_data: dict, num_questions: int = 5):
-    """(Optionally) Create MCQs with TERMS as choices, not definitions"""
+    """Create MCQs with TERMS as choices, not definitions"""
     facts = facts_data['facts']
     terms = facts_data['terms']
     
@@ -188,12 +334,10 @@ def create_fallback_mcqs(facts_data: dict, num_questions: int = 5):
         if len(other_terms) < 2:
             other_terms.extend(["Unknown", "None", "Other"])
         
-        # Choices are TERMS (Venus, Mars, Jupiter), not definitions
         choices = [term, other_terms[0], other_terms[1] if len(other_terms) > 1 else "Other"]
         random.shuffle(choices)
         
-        # Question asks about the property/description
-        # Take key words from description (2-5 words)
+        # Take key words from description
         desc_words = description.split()
         if len(desc_words) > 5:
             desc_short = ' '.join(desc_words[:5])
@@ -206,7 +350,7 @@ def create_fallback_mcqs(facts_data: dict, num_questions: int = 5):
             'correctIndex': choices.index(term)
         })
     
-    # Strategy 2: Simple "Which X is mentioned?" questions
+    # Strategy 2: "What is mentioned about X?" questions
     while len(mcqs) < num_questions and len(terms) >= 3:
         available = [t for t in terms if t not in used]
         
@@ -223,7 +367,7 @@ def create_fallback_mcqs(facts_data: dict, num_questions: int = 5):
         random.shuffle(choices)
         
         mcqs.append({
-            'question': f"Which is mentioned in the text?",
+            'question': f"What is discussed in the text?",
             'choices': choices,
             'correctIndex': choices.index(correct)
         })
@@ -231,13 +375,19 @@ def create_fallback_mcqs(facts_data: dict, num_questions: int = 5):
     print(f"✅ Created {len(mcqs)} fallback questions")
     return mcqs[:num_questions]
 
+
 def parse_mcqs(text: str, target: int = 5):
-    """(Optionally) Parse MCQs from generated text"""
+    """Parse MCQs with multiple pattern support"""
     mcqs = []
     
-    # Find question blocks
-    pattern = r'Question\s+\d+:\s*(.+?)(?=Question\s+\d+:|$)'
-    blocks = re.findall(pattern, text, re.DOTALL | re.IGNORECASE)
+    # Pattern 1: "Question N:" format
+    pattern1 = r'Question\s+\d+:\s*(.+?)(?=Question\s+\d+:|$)'
+    blocks = re.findall(pattern1, text, re.DOTALL | re.IGNORECASE)
+    
+    # Pattern 2: "N." or "Q N:" format (fallback)
+    if not blocks:
+        pattern2 = r'(?:^|\n)(?:\d+\.|Q\d+:)\s*(.+?)(?=(?:^|\n)(?:\d+\.|Q\d+:)|$)'
+        blocks = re.findall(pattern2, text, re.DOTALL | re.IGNORECASE)
     
     for block in blocks:
         lines = [line.strip() for line in block.split('\n') if line.strip()]
@@ -250,18 +400,16 @@ def parse_mcqs(text: str, target: int = 5):
         if not question.endswith('?'):
             question += "?"
         
-        # Extract choices (A), B), C))
+        # Extract choices
         choices = []
         correct_idx = 0
         
         for line in lines[1:]:
-            # Match A) answer or A. answer or A: answer
-            choice_match = re.match(r'^([ABC])\)?\s*(.+)', line, re.IGNORECASE)
+            choice_match = re.match(r'^([ABC])[\).\:]\s*(.+)', line, re.IGNORECASE)
             if choice_match:
                 answer_text = choice_match.group(2).strip()
                 choices.append(answer_text)
             
-            # Match "Correct: A" or "Answer: A"
             correct_match = re.match(r'(?:Correct|Answer):?\s*([ABC])', line, re.IGNORECASE)
             if correct_match:
                 correct_idx = ord(correct_match.group(1).upper()) - ord('A')
@@ -281,15 +429,33 @@ def parse_mcqs(text: str, target: int = 5):
     
     return mcqs
 
+
+# ========== VALIDATION HELPER ==========
+def validate_mcq(mcq: dict) -> bool:
+    """Validate MCQ structure"""
+    return (
+        'question' in mcq and 
+        'choices' in mcq and 
+        'correctIndex' in mcq and
+        len(mcq['choices']) == 3 and
+        0 <= mcq['correctIndex'] < 3 and
+        len(mcq['question']) > 10 and
+        all(len(choice) > 0 for choice in mcq['choices'])
+    )
+
+
 # ========== ROUTES ==========
 @app.get("/")
 async def root():
+    device_name = next(model.parameters()).device.type if model else "unknown"
     return {
-        "message": "TinyLlama MCQ Generator",
+        "message": "TinyLlama MCQ Generator - Enhanced",
         "model": "TinyLlama-1.1B-Chat-v1.0",
-        "device": "CPU",
+        "device": device_name.upper(),
+        "features": ["preprocessing", "noise_removal", "sentence_ranking", "gpu_support"],
         "status": "ready"
     }
+
 
 @app.post("/generate")
 async def generate(file: UploadFile = File(...)):
@@ -312,16 +478,19 @@ async def generate(file: UploadFile = File(...)):
         
         text = extract_text_from_pdf(tmp_path)
         if len(text) < 50:
-            raise HTTPException(status_code=400, detail="Text too short")
+            raise HTTPException(status_code=400, detail="Text too short after preprocessing")
         
-        print(f"📊 Extracted {len(text)} characters")
+        print(f"📊 Final text length: {len(text)} characters")
         
         questions = generate_mcqs_with_tinyllama(text, 5)
+        
+        # Validate all questions
+        questions = [q for q in questions if validate_mcq(q)]
         
         if not questions:
             raise HTTPException(status_code=500, detail="Generation failed")
         
-        print(f"✅ Returning {len(questions)} questions")
+        print(f"✅ Returning {len(questions)} validated questions")
         for i, q in enumerate(questions, 1):
             print(f"   Q{i}: {q['question'][:50]}...")
         print(f"{'='*60}\n")
@@ -330,7 +499,8 @@ async def generate(file: UploadFile = File(...)):
             "success": True,
             "questions": questions,
             "count": len(questions),
-            "model": "TinyLlama"
+            "model": "TinyLlama",
+            "preprocessed": True
         }
     
     except HTTPException:
@@ -348,25 +518,31 @@ async def generate(file: UploadFile = File(...)):
             except:
                 pass
 
+
 @app.get("/health")
 async def health():
+    device_name = next(model.parameters()).device.type if model else "unknown"
     return {
         "status": "healthy", 
         "model_loaded": model is not None,
         "model": "TinyLlama-1.1B",
-        "device": "CPU"
+        "device": device_name.upper(),
+        "preprocessing": "enabled"
     }
+
 
 @app.get("/favicon.ico")
 async def favicon():
     return {}
 
+
 if __name__ == "__main__":
     import uvicorn
     print("\n" + "="*60)
-    print("⚡ TinyLlama MCQ Generator - FIXED")
-    print("📝 Choices are now SHORT terms, not long definitions")
+    print("⚡ TinyLlama MCQ Generator - ENHANCED")
+    print("🧹 With preprocessing: noise removal + sentence ranking")
+    print("📝 Improved prompt formatting and validation")
+    print(f"🎯 Running on: {device.upper()}")
     print("📍 API: http://localhost:8000")
     print("="*60 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-# Note: To run on GPU, remove or comment out the lines that force CPU usage at the top.
