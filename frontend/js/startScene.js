@@ -112,11 +112,19 @@ class StartScene extends Phaser.Scene {
       });
     });
 
-    // Click: redirect to upload.html
     startBtn.on('pointerdown', () => {
-      // if (this.sound.get('btnClick')) this.sound.play('btnClick');
-      window.location.href = '/upload';
+        // disable further clicks
+        startBtn.disableInteractive();
+
+        // Fade-out transition
+        this.cameras.main.fadeOut(800, 0, 0, 0); // 800ms fade to black
+
+        // Redirect once fade completes
+        this.time.delayedCall(800, () => {
+            window.location.href = '/upload';
+        });
     });
+
 
     // --- Cat sprite positioned slightly lower-left of the start button ---
     // Calculate offsets relative to the button's displayed size so positioning remains proportional
