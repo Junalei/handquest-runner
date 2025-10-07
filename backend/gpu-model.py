@@ -1,4 +1,4 @@
-# GPU TinyLlama MCQ Generator - Enhanced with GPU Support (No Accelerate)
+# GPU-RUN TinyLlama MCQ Generator
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
