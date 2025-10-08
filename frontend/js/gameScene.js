@@ -169,15 +169,35 @@ class GameScene extends Phaser.Scene {
     this.obstacleKeys = ['obstacle1', 'obstacle2', 'obstacle3', 'obstacle4', 'obstacle5', 'obstacle6', 'obstacle7', 'obstacle8', 'obstacle9', 'obstacle10'];
 
     // --- GAME SETTINGS ---
-    this.questions = [
-        { question: "What is the capital of France?", choices: ["Paris","Rome","London"], answer: 0 },
-        { question: "2 + 2 = ?", choices: ["3","4","5"], answer: 1 },
-        { question: "Color of the sky?", choices: ["Green","Blue","Red"], answer: 1 },
-        { question: "Python is a ___?", choices: ["Snake","Language","Food"], answer: 1 },
-        { question: "HTML stands for?", choices: ["Markup","Code","Style"], answer: 0 },
-        { question: "An ocean is made of?", choices: ["Desert","Water","Mountain"], answer: 1 },
-        { question: "The sun rises in the?", choices: ["East","West","North"], answer: 0 },
-    ];
+    // NEW code to load questions from the backend
+    const storedQuestions = localStorage.getItem("handquest_questions");
+
+    if (storedQuestions) {
+      console.log("✅ Questions loaded from backend!");
+      // The backend data needs to be adapted to the format this game expects.
+      this.questions = JSON.parse(storedQuestions).map(q => ({
+        question: q.question,
+        choices: q.choices,
+        answer: q.correctIndex
+      }));
+    } else {
+      console.warn("⚠️ No backend questions found. Using fallback questions.");
+      // This is the original hardcoded data, used as a backup.
+      this.questions = [
+        { question: "What is the capital of France?", choices: ["Paris", "Rome", "London"], answer: 0 },
+        { question: "2 + 2 = ?", choices: ["3", "4", "5"], answer: 1 },
+        { question: "Color of the sky?", choices: ["Green", "Blue", "Red"], answer: 1 }
+      ];
+    }
+    // this.questions = [
+    //     { question: "What is the capital of France?", choices: ["Paris","Rome","London"], answer: 0 },
+    //     { question: "2 + 2 = ?", choices: ["3","4","5"], answer: 1 },
+    //     { question: "Color of the sky?", choices: ["Green","Blue","Red"], answer: 1 },
+    //     { question: "Python is a ___?", choices: ["Snake","Language","Food"], answer: 1 },
+    //     { question: "HTML stands for?", choices: ["Markup","Code","Style"], answer: 0 },
+    //     { question: "An ocean is made of?", choices: ["Desert","Water","Mountain"], answer: 1 },
+    //     { question: "The sun rises in the?", choices: ["East","West","North"], answer: 0 },
+    // ];
 
     this.questionIndex = 0;
     this.correctCount = 0;

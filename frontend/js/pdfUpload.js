@@ -120,39 +120,50 @@ class PdfUploadScene extends Phaser.Scene {
     });
 
     // --- File Upload Handler ---
-    const handleFileUpload = (file) => {
+    
+        const handleFileUpload = async (file) => {
       if (!file) return;
 
       const isPdf =
         file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
       if (!isPdf) {
-        pdfButton.setTint(0xff9999);
-        uploadZone.setTint(0xff9999);
-        setTimeout(() => {
-          pdfButton.clearTint();
-          uploadZone.clearTint();
-        }, 600);
+        console.warn('❌ Not a PDF file!');
         return;
       }
 
-      uploadZone.setTint(0x99ff99);
-      this.tweens.add({
-        targets: pdfButton,
-        scaleX: basePdfScale * 1.15,
-        scaleY: basePdfScale * 1.15,
-        duration: 180,
-        yoyo: true,
-        ease: 'Cubic.easeOut',
-      });
+      try {
+        // Prepare form
+        const formData = new FormData();
+        formData.append('file', file, file.name);
 
-      setTimeout(() => {
-        uploadZone.clearTint();
-        pdfButton.clearTint();
-        window.location.href = '/game';
-      }, 900);
+        // Send to backend
+        const response = await fetch('http://localhost:8000/generate', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          console.error('❌ Upload failed with HTTP code:', response.status);
+          return;
+        }
+
+        // Parse JSON
+        const data = await response.json();
+        if (data && data.questions && data.questions.length > 0) {
+          localStorage.setItem('handquest_questions', JSON.stringify(data.questions));
+          localStorage.setItem('uploaded_pdf_name', file.name);
+          console.log(`✅ Upload and processing successful! ${data.questions.length} questions saved.`);
+          window.location.href = '/game'; // Go to game
+        } else {
+          console.error('❌ Upload succeeded but no questions returned. Backend data:', data);
+        }
+      } catch (err) {
+        console.error('❌ Error during upload:', err);
+      }
     };
 
+    
     // --- File dialog ---
     const openFileDialog = () => {
       const input = document.createElement('input');
