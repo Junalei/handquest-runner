@@ -127,7 +127,7 @@ class PdfUploadScene extends Phaser.Scene {
       setTimeout(() => {
         uploadZone.clearTint();
         pdfButton.clearTint();
-        window.location.href = '/game.html';
+        window.location.href = '/game';
       }, 900);
     };
 

@@ -14,6 +14,11 @@ def start_page():
 def upload_page():
     return render_template('upload.html')
 
+@app.route('/game')
+def game_page():
+    return render_template('game.html')
+
+
 # Serve CSS, JS, and assets correctly
 @app.route('/<path:filename>')
 def serve_static_files(filename):
