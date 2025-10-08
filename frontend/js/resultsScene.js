@@ -14,8 +14,10 @@ class ResultsScene extends Phaser.Scene {
    */
   preload() {
     this.load.image('resultBackground', '/assets/sprites/environment/result.png');
-    this.load.image('student', '/assets/sprites/player/student.png');
+    this.load.image('student', '/assets/sprites/player/player.png');
     this.load.image('scoreboard', '/assets/sprites/ui/scoreboard.png');
+    // Load the new cheering sprite
+    this.load.image('studentCheer', '/assets/sprites/player/cheer.png'); 
   }
 
   /**
@@ -38,8 +40,23 @@ class ResultsScene extends Phaser.Scene {
     // Add a semi-transparent overlay to dim the background
     this.add.rectangle(centerX, centerY, width, height, 0x000000, 0.5);
 
-    // Add the student character sprite
-    this.add.sprite(width * 0.20, height * 0.75, 'student').setScale(1);
+    // --- Student Cheering Animation ---
+
+    // 1. Create the animation by defining the frames and their properties
+    this.anims.create({
+        key: 'cheer_animation',
+        frames: [
+            { key: 'student' },
+            { key: 'studentCheer' }
+        ],
+        frameRate: 2, // Flips between the two images twice per second
+        repeat: -1 // Loop forever
+    });
+    
+    // 2. Add the student sprite and play the animation
+    const student = this.add.sprite(width * 0.20, height * 0.75, 'student').setScale(1);
+    student.play('cheer_animation');
+
 
     // Get the score from the URL parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -70,10 +87,10 @@ class ResultsScene extends Phaser.Scene {
     // 3. Start the continuous dangling animation on the container itself
     this.tweens.add({
       targets: container, // Animate the container, not the individual parts
-      angle: 3, // Swing to 3 degrees
+      angle: 5, // Swing to 3 degrees
       ease: 'Sine.easeInOut',
       duration: 1800,
-      delay: 300, // A brief delay before starting the swing
+      delay: 100, // A brief delay before starting the swing
       yoyo: true, // Swing back and forth
       repeat: -1 // Loop forever
     });
@@ -108,7 +125,18 @@ class ResultsScene extends Phaser.Scene {
 
     // Make the "Play Again" button interactive
     playAgainText.on('pointerdown', () => {
-        window.location.href = '/upload';
+        // Add a click animation before navigating
+        this.tweens.add({
+            targets: playAgainText,
+            scale: 0.9, // Briefly shrink the text
+            ease: 'Sine.easeInOut',
+            duration: 100,
+            yoyo: true, // Scale it back up
+            onComplete: () => {
+                // Navigate to the next page after the animation is complete
+                window.location.href = '/upload';
+            }
+        });
     });
 
     // Add hover effects for the "Play Again" button

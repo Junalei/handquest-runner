@@ -5,13 +5,32 @@ class PdfUploadScene extends Phaser.Scene {
 
   preload() {
     this.load.image('lockers', '/assets/sprites/environment/lockers.png');
-    this.load.image('student', '/assets/sprites/player/student.png');
+    // Load all three frames for the student animation
+    this.load.image('student_1', '/assets/sprites/player/student.png');
+    this.load.image('student_2', '/assets/sprites/player/student-1.png');
+    this.load.image('student_3', '/assets/sprites/player/student-2.png');
     this.load.image('uploadBox', '/assets/sprites/ui/upload.png');
     this.load.image('pdfIcon', '/assets/sprites/ui/pdf.png');
   }
 
   create() {
     const { width, height } = this.scale;
+
+    // --- Student Animation ---
+    // Create the animation using the preloaded images.
+    // The frame sequence is explicitly defined to create the 1 -> 2 -> 3 -> 2 loop.
+    this.anims.create({
+      key: 'student_speak',
+      frames: [
+        { key: 'student_1' },
+        { key: 'student_2' },
+        { key: 'student_3' },
+        { key: 'student_2' } // This creates the specific loop you wanted
+      ],
+      frameRate: 5, // You can adjust this value to make the animation faster or slower
+      repeat: -1    // This makes the animation loop forever
+    });
+
 
     // --- Background (scaled like StartScene) ---
     const bg = this.add.image(0, 0, 'lockers').setOrigin(0, 0);
@@ -23,10 +42,13 @@ class PdfUploadScene extends Phaser.Scene {
     // Subtle dark overlay for readability
     this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x0b1220, 0.25).setOrigin(0);
 
-    // --- Student (bottom-left corner) ---
-    const student = this.add.image(this.scale.width * 0.13, this.scale.height * 0.78, 'student')
+    // --- Student (bottom-left corner, now an animated sprite) ---
+    const student = this.add.sprite(this.scale.width * 0.13, this.scale.height * 0.90, 'student_1')
       .setOrigin(0.5)
-      .setScale(0.8);
+      .setScale(1.1);
+      
+    // Play the speaking animation we created earlier
+    student.play('student_speak');
 
     // --- Upload area (floating animation) ---
     const uploadZone = this.add.image(this.scale.width / 2, this.scale.height * 0.45, 'uploadBox')

@@ -26,6 +26,10 @@ class GameScene extends Phaser.Scene {
 
     // sprites
     this.load.image('student', '/assets/sprites/player/user.png');
+    // Load the running animation frames
+    this.load.image('student-run-1', '/assets/sprites/player/user-1.png');
+    this.load.image('student-run-2', '/assets/sprites/player/user-2.png');
+    this.load.image('student-run-3', '/assets/sprites/player/user-3.png');
     this.load.image('heart', '/assets/sprites/ui/heart.png');
 
     // Obstacle Sprites (10 total as requested)
@@ -76,32 +80,74 @@ class GameScene extends Phaser.Scene {
     console.log('Static background loaded');
 
     // --- LANES SETUP (Subway Surfer style - 3 lanes) ---
-    const laneOffset = Math.round(width * 0.22); // Increased offset for wider lanes
+    // FIX: Reduced lane offset from 0.20 to 0.18 to bring lanes closer.
+    const laneOffset = Math.round(width * 0.18); 
     this.lanes = [centerX - laneOffset, centerX, centerX + laneOffset];
 
     console.log('Lanes positioned at:', this.lanes);
 
+    // --- PLAYER ANIMATION ---
+    // 1. Create the running animation
+    this.anims.create({
+        key: 'run_animation',
+        frames: [
+            { key: 'student' },
+            { key: 'student-run-1' },
+            { key: 'student-run-2' },
+            { key: 'student-run-3' }
+        ],
+        frameRate: 8, // Adjust for a smooth running speed
+        repeat: -1 // Loop forever
+    });
+
     // --- PLAYER ---
-    this.playerY = height * 0.85; // Player positioned lower
+    // 2. Create the player sprite and play the animation
+    this.playerY = height * 0.80; // Player positioned lower
     this.player = this.add.sprite(this.lanes[1], this.playerY, 'student')
-      .setOrigin(0.52, 0.45)
-      .setScale(0.8) // Player slightly smaller
+      .setOrigin(0.52, 0.40) 
+      .setScale(0.7) // Player slightly smaller
       .setDepth(90);
+    this.player.play('run_animation');
 
     this.currentLane = 1;
     this.isMoving = false;
     this.isJumping = false;
+    // The vertical offset for collision detection, starting with the value for the center lane.
+    this.collisionYOffset = 80;
 
     // --- UI ---
     this.maxHearts = 3;
     this.hearts = [];
     for (let i = 0; i < this.maxHearts; i++) {
-        this.hearts.push(this.add.image(40 + i * 57, 40, 'heart').setOrigin(0.2).setScale(0.18).setScrollFactor(0).setDepth(200));
+        this.hearts.push(this.add.image(40 + i * 57, 35, 'heart').setOrigin(0.0).setScale(0.18).setScrollFactor(0).setDepth(200));
     }
+
+    // Add continuous animation to the hearts
+    this.hearts.forEach((heart, index) => {
+      this.tweens.add({
+        targets: heart,
+        scale: 0.20, // Pulse to a slightly larger size
+        ease: 'Sine.easeInOut',
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        delay: index * 250 // Stagger the animation for a more dynamic feel
+      });
+    });
 
     this.lives = this.maxHearts;
     this.score = 0;
-    this.scoreText = this.add.text(width - 30, 30, 'SCORE: 000', { fontFamily: "'Press Start 2P', monospace", fontSize: '20px', color: '#ffbf00', stroke: '#000000', strokeThickness: 4, align: 'right' }).setOrigin(1, 0).setScrollFactor(0).setDepth(200);
+    this.scoreText = this.add.text(width - 50, 45, 'SCORE: 000', { fontFamily: "'Press Start 2P', monospace", fontSize: '22px', color: '#ffbf00', stroke: '#000000', strokeThickness: 4, align: 'right' }).setOrigin(1, 0).setScrollFactor(0).setDepth(200);
+
+    // Add continuous animation to the score text
+    this.tweens.add({
+      targets: this.scoreText,
+      scale: 1.05, // Pulse to a slightly larger size
+      ease: 'Sine.easeInOut',
+      duration: 1200,
+      yoyo: true,
+      repeat: -1
+    });
 
     // Add signboard for the question
     this.signboard = this.add.image(centerX, 130, 'signboard')
@@ -145,13 +191,13 @@ class GameScene extends Phaser.Scene {
     const spawnXOffsetSide = width * 0.02;
 
     this.spawnPoints = [
-      { x: centerX - spawnXOffset, y: spawnYSides }, 
-      { x: centerX - 10, y: spawnYCenter },          
-      { x: centerX + spawnXOffsetSide, y: spawnYSides }  
+      { x: centerX - 60, y: spawnYSides }, // left lane
+      { x: centerX - 10, y: spawnYCenter },           
+      { x: centerX + spawnXOffsetSide, y: spawnYSides }   
     ];
     
     this.randomObstacleStartScale = 0.05;
-    this.mcqStartScale = 0.08;            
+    this.mcqStartScale = 0.08;              
     
     this.endY = height;
     
@@ -225,7 +271,8 @@ class GameScene extends Phaser.Scene {
       obsData.sprite.setScale(scale);
       obsData.sprite.setDepth(10 + Math.floor(newY / 10));
       
-      if (newY > this.playerY - 80) {
+      // Use the dynamic collision offset
+      if (newY > this.playerY - this.collisionYOffset) {
         this.checkCollision(obsData);
       }
 
@@ -258,9 +305,26 @@ class GameScene extends Phaser.Scene {
   moveToLane(direction) {
     if (this.gameIsOver) return;
     const newLane = Phaser.Math.Clamp(this.currentLane + direction, 0, this.lanes.length - 1);
+    
     if (newLane !== this.currentLane) {
       this.currentLane = newLane;
-      this.tweens.add({ targets: this.player, angle: direction * 8, duration: 120, yoyo: true, ease: 'Quad.easeOut' });
+      
+      // FIX: Calculate target angle for tilting effect.
+      // Lane 0 (left) -> angle = 8 (slight right tilt)
+      // Lane 1 (center) -> angle = 0 (upright)
+      // Lane 2 (right) -> angle = -8 (slight left tilt)
+      const targetAngle = (1 - newLane) * 8;
+
+      // FIX: Set a higher collision offset for side lanes to account for perspective.
+      this.collisionYOffset = (newLane === 1) ? 70 : 70; 
+      
+      // Animate the player's tilt smoothly.
+      this.tweens.add({
+        targets: this.player,
+        angle: targetAngle,
+        duration: 250,
+        ease: 'Quad.easeOut'
+      });
     }
   }
 
@@ -532,4 +596,3 @@ class GameScene extends Phaser.Scene {
 }
 
 window.GameScene = GameScene;
-
