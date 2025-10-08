@@ -21,7 +21,7 @@ let player, background;
 let lanes = [];
 let currentLane = 1;
 let isJumping = false;
-let isDucking = false;
+
 let lastGesture = "none";
 let score = 0;
 let hearts = 3;
@@ -88,7 +88,7 @@ function create() {
   this.input.keyboard.on("keydown-LEFT", () => (window.currentAction = "left"));
   this.input.keyboard.on("keydown-RIGHT", () => (window.currentAction = "right"));
   this.input.keyboard.on("keydown-UP", () => (window.currentAction = "jump"));
-  this.input.keyboard.on("keydown-DOWN", () => (window.currentAction = "duck"));
+  this.input.keyboard.on("keydown-DOWN", () => (window.currentAction = "stop"));
 }
 
 // ====== Spawn Question and Obstacles ======
@@ -208,14 +208,7 @@ function update(time, delta) {
     isJumping = true;
     player.setVelocityY(-500);
   }
-  if (isNewGesture && action === "duck" && !isDucking) {
-    isDucking = true;
-    player.setScale(1, 0.5);
-    setTimeout(() => {
-      player.setScale(1, 1);
-      isDucking = false;
-    }, 700);
-  }
+  
   if (player.body.touching.down) isJumping = false;
   lastGesture = action;
 

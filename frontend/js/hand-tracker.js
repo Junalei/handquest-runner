@@ -4,7 +4,7 @@ const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement.getContext('2d');
 
 // ====== Global variables ======
-window.currentAction = "none"; // 'jump', 'left', 'right', 'duck'
+window.currentAction = "none"; // 'jump', 'left', 'right', 'stop'
 let lastAction = "none";
 let activeHand = null;
 
@@ -60,7 +60,7 @@ function getFingersUp(landmarks, isRightHand) {
 function detectGesture(fingers) {
   const count = fingers.filter(Boolean).length;
 
-  if (count === 0) return "duck";        // ✊ closed fist
+  if (count === 0) return "stop";        // ✊ closed fist
   if (count === 5) return "jump";        // 🖐️ open palm
   if (fingers[1] && !fingers[2] && count === 1) return "left";  // ☝️ index only
   if (fingers[1] && fingers[2] && count === 2) return "right";  // ✌️ peace sign
@@ -148,8 +148,8 @@ document.addEventListener("keydown", (event) => {
       console.log("⌨️ KEYBOARD → JUMP");
       break;
     case "ArrowDown":
-      window.currentAction = "duck";
-      console.log("⌨️ KEYBOARD → DUCK");
+      window.currentAction = "stop";
+      console.log("⌨️ KEYBOARD → STOP");
       break;
     case "ArrowLeft":
       window.currentAction = "left";
@@ -171,4 +171,4 @@ console.log("🖐️ Show ONE hand (left or right) to control");
 console.log("   ☝️ Index finger = LEFT");
 console.log("   ✌️ Peace sign = RIGHT");
 console.log("   🖐️ Open palm = JUMP");
-console.log("   ✊ Closed fist = DUCK");
+console.log("   ✊ Closed fist = STOP");
