@@ -18,6 +18,10 @@ def upload_page():
 def game_page():
     return render_template('game.html')
 
+@app.route('/results')
+def results():
+    return render_template('results.html')
+
 
 # Serve CSS, JS, and assets correctly
 @app.route('/<path:filename>')

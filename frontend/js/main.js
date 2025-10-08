@@ -5,6 +5,8 @@ window.addEventListener('load', () => {
     scene = window.PdfUploadScene;
   } else if (window.location.pathname.includes('/game')) {
     scene = window.GameScene;
+  } else if (window.location.pathname.includes('/results')) {
+    scene = window.ResultsScene;
   } else {
     scene = window.StartScene;
   }
