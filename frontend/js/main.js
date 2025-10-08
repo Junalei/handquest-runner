@@ -1,20 +1,27 @@
-// Initialize Phaser game and start the StartScene
-
 window.addEventListener('load', () => {
+  let scene;
+
+  // Auto-detect page
+  if (window.location.pathname.includes('/upload')) {
+    scene = window.PdfUploadScene;
+  } else {
+    scene = window.StartScene;
+  }
+
   const config = {
     type: Phaser.AUTO,
     parent: 'phaser-container',
-    width: 1280,
-    height: 720,
-    pixelArt: true, // keep pixelated look
+    pixelArt: true,
     scale: {
       mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: 1280,
+      height: 720,
     },
-    scene: [ window.StartScene ] // StartScene defined in startScene.js
+    scene: [scene],
   };
 
-  // Prevent multiple games from being created during hot reloads
+  // Prevent multiple games
   if (!window._handquestGame) {
     window._handquestGame = new Phaser.Game(config);
   }
