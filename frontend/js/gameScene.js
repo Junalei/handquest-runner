@@ -1,34 +1,57 @@
+/**
+ * @class GameScene
+ * @description This class represents the main game scene in a Phaser 3 game.
+ * It handles player movement, obstacle spawning (both random and multiple-choice questions),
+ * collision detection, UI updates (score, lives), and game state management.
+ * The game is an endless runner with an educational twist, where the player
+ * must dodge obstacles and answer questions to score points.
+ */
 class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
   }
 
+  /**
+   * @function preload
+   * @description Loads all necessary assets for the game before it starts.
+   */
   preload() {
     // Add load error handling
     this.load.on('loaderror', (file) => {
       console.error('Error loading file:', file.src);
     });
 
-    // environment layers
-    this.load.image('corridor', '/assets/sprites/environment/corridor.png');
-    this.load.image('walls', '/assets/sprites/environment/walls.png');
-    this.load.image('ceiling', '/assets/sprites/environment/ceiling.png');
-    this.load.image('tiles', '/assets/sprites/environment/tiles.png');
+    // Static background
+    this.load.image('background', '/assets/sprites/environment/background.png');
 
     // sprites
-    this.load.image('student', '/assets/sprites/player/student.png');
+    this.load.image('student', '/assets/sprites/player/user.png');
     this.load.image('heart', '/assets/sprites/ui/heart.png');
+
+    // Obstacle Sprites (10 total as requested)
     this.load.image('obstacle1', '/assets/sprites/obstacles/bag.png');
     this.load.image('obstacle2', '/assets/sprites/obstacles/books.png');
     this.load.image('obstacle3', '/assets/sprites/obstacles/cat.png');
+    this.load.image('obstacle4', '/assets/sprites/obstacles/laptop.png');
+    this.load.image('obstacle5', '/assets/sprites/obstacles/pen.png');
+    this.load.image('obstacle6', '/assets/sprites/obstacles/chair.png');
+    this.load.image('obstacle7', '/assets/sprites/obstacles/computer.png');
+    this.load.image('obstacle8', '/assets/sprites/obstacles/cpu.png');
+    this.load.image('obstacle9', '/assets/sprites/obstacles/girl.png');
+    this.load.image('obstacle10', '/assets/sprites/obstacles/keyboard.png');
 
     // extra UI art
-    this.load.image('wood', '/assets/sprites/wood.png');
-    this.load.image('signboard', '/assets/sprites/signboard.png');
+    this.load.image('wood', '/assets/sprites/ui/wood.png');
+    this.load.image('signboard', '/assets/sprites/ui/signboard.png');
   }
 
+  /**
+   * @function create
+   * @description Initializes game objects, sets up UI, controls, and timers.
+   */
   create() {
     const { width, height } = this.scale;
+    const centerX = width / 2;
 
     console.log('GameScene created. Canvas size:', width, 'x', height);
 
@@ -38,574 +61,475 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    // --- BACKGROUND CONTAINER FOR EASIER MANAGEMENT ---
-    this.bgContainer = this.add.container(0, 0).setDepth(0);
-
-    // --- LAYER 1: FAR CORRIDOR (Subtle tilePosition for depth) ---
-    this.farBg = this.add.tileSprite(width / 2, height / 2, width, height, 'corridor')
+    // --- STATIC BACKGROUND ---
+    this.background = this.add.image(centerX, height / 2, 'background')
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(0);
 
-    // --- LAYER 2: WALLS (Scale + Move Outward Animation) ---
-    // Create multiple wall sprites for continuous loop
-    this.wallsGroup = [];
-    for (let i = 0; i < 3; i++) {
-      const wall = this.add.sprite(width / 2, height / 2 - (i * height * 0.8), 'walls')
-        .setOrigin(0.5)
-        .setScale(0.5) // Start small (far away)
-        .setAlpha(0.3 + (i * 0.35)) // Further = more transparent
-        .setDepth(10);
-      this.wallsGroup.push(wall);
-    }
+    // Scale background to cover entire canvas
+    const scaleX = width / this.background.width;
+    const scaleY = height / this.background.height;
+    const scale = Math.max(scaleX, scaleY);
+    this.background.setScale(scale);
 
-    // --- LAYER 3: CEILING (Scale + Move Up Animation) ---
-    this.ceilingGroup = [];
-    const ceilingHeight = height * 0.4;
-    for (let i = 0; i < 3; i++) {
-      const ceiling = this.add.sprite(width / 2, (ceilingHeight / 2) - (i * ceilingHeight * 0.6), 'ceiling')
-        .setOrigin(0.5)
-        .setScale(0.5)
-        .setAlpha(0.3 + (i * 0.35))
-        .setDepth(20);
-      this.ceilingGroup.push(ceiling);
-    }
-
-    // --- LAYER 4: FLOOR TILES (Scale + Move Down Animation) ---
-    this.tilesGroup = [];
-    const floorHeight = height * 0.45;
-    const floorY = height - (floorHeight / 2);
-    for (let i = 0; i < 3; i++) {
-      const tile = this.add.sprite(width / 2, floorY + (i * floorHeight * 0.6), 'tiles')
-        .setOrigin(0.5)
-        .setScale(0.5)
-        .setAlpha(0.3 + (i * 0.35))
-        .setDepth(30);
-      this.tilesGroup.push(tile);
-    }
-
-    console.log('All background layers created with animation pools');
-
-    // Optional dark overlay for depth
-    this.overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.1)
-      .setOrigin(0)
-      .setDepth(5);
+    console.log('Static background loaded');
 
     // --- LANES SETUP (Subway Surfer style - 3 lanes) ---
-    const centerX = width / 2;
-    const laneOffset = Math.round(width * 0.18);
+    const laneOffset = Math.round(width * 0.22); // Increased offset for wider lanes
     this.lanes = [centerX - laneOffset, centerX, centerX + laneOffset];
 
     console.log('Lanes positioned at:', this.lanes);
 
-    // --- PLAYER (STATIONARY - only moves left/right between lanes) ---
-    this.physics.world.setBounds(0, 0, width, height);
-    
-    // Player stays at fixed Y position (like Subway Surfer)
-    const playerY = height * 0.72;
-    
-    this.player = this.physics.add.sprite(this.lanes[1], playerY, 'student')
-      .setOrigin(0.5, 1) // Anchor at bottom center for better ground contact
-      .setScale(1.0)
-      .setDepth(40);
-    
-    this.player.body.setAllowGravity(false);
-    this.player.setCollideWorldBounds(true);
-    this.currentLane = 1; // Start in middle lane
-    this.targetLane = 1;
+    // --- PLAYER ---
+    this.playerY = height * 0.85; // Player positioned lower
+    this.player = this.add.sprite(this.lanes[1], this.playerY, 'student')
+      .setOrigin(0.52, 0.45)
+      .setScale(0.8) // Player slightly smaller
+      .setDepth(90);
+
+    this.currentLane = 1;
     this.isMoving = false;
+    this.isJumping = false;
 
-    console.log('Player created at:', this.lanes[1], playerY);
-
-    // Running animation - alternate leg movement
-    this.tweens.add({
-      targets: this.player,
-      scaleX: 1.02,
-      scaleY: 0.98,
-      duration: 150,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-
-    // Subtle bob
-    this.tweens.add({
-      targets: this.player,
-      y: playerY - 5,
-      duration: 300,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-
-    // --- UI: HEARTS (top-left) ---
+    // --- UI ---
     this.maxHearts = 3;
     this.hearts = [];
     for (let i = 0; i < this.maxHearts; i++) {
-      const h = this.add.image(30 + i * 40, 30, 'heart')
-        .setOrigin(0, 0)
-        .setScale(0.8)
-        .setScrollFactor(0)
-        .setDepth(100);
-      this.hearts.push(h);
+        this.hearts.push(this.add.image(40 + i * 57, 40, 'heart').setOrigin(0.2).setScale(0.18).setScrollFactor(0).setDepth(200));
     }
+
     this.lives = this.maxHearts;
-
-    // --- SCORE (top-right) ---
     this.score = 0;
-    this.scoreText = this.add.text(width - 30, 30, 'SCORE: 000', {
-      fontFamily: "'Press Start 2P', monospace",
-      fontSize: '20px',
-      color: '#ffbf00',
-      stroke: '#000000',
-      strokeThickness: 4,
-      align: 'right'
-    }).setOrigin(1, 0)
-      .setScrollFactor(0)
-      .setDepth(100);
+    this.scoreText = this.add.text(width - 30, 30, 'SCORE: 000', { fontFamily: "'Press Start 2P', monospace", fontSize: '20px', color: '#ffbf00', stroke: '#000000', strokeThickness: 4, align: 'right' }).setOrigin(1, 0).setScrollFactor(0).setDepth(200);
 
-    // --- QUESTION TEXT (top-center) ---
-    this.questionText = this.add.text(width / 2, 25, '', {
+    // Add signboard for the question
+    this.signboard = this.add.image(centerX, 130, 'signboard')
+      .setOrigin(0.5)
+      .setScale(0.9)
+      .setDepth(199)
+      .setVisible(false);
+    
+    this.questionText = this.add.text(this.signboard.x, this.signboard.y - 5, '', {
       fontFamily: "'Press Start 2P', monospace",
       fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 4,
+      color: '#402c1b',
       align: 'center',
-      wordWrap: { width: width * 0.85 }
-    }).setOrigin(0.5, 0)
-      .setScrollFactor(0)
-      .setDepth(100);
+      lineSpacing: 8 
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(200).setVisible(false);
 
-    // --- OBSTACLES GROUP ---
-    this.obstacles = this.physics.add.group();
-    this.physics.add.overlap(this.player, this.obstacles, this.handleCollision, null, this);
+    // --- OBSTACLES ---
+    this.obstaclesArray = [];
+    this.obstacleKeys = ['obstacle1', 'obstacle2', 'obstacle3', 'obstacle4', 'obstacle5', 'obstacle6', 'obstacle7', 'obstacle8', 'obstacle9', 'obstacle10'];
 
     // --- GAME SETTINGS ---
     this.questions = [
-      { question: "What is the capital of France?", choices: ["Paris","Rome","London"], answer: 0 },
-      { question: "2 + 2 = ?", choices: ["3","4","5"], answer: 1 },
-      { question: "Color of the sky?", choices: ["Green","Blue","Red"], answer: 1 },
-      { question: "Python is a ___?", choices: ["Snake","Language","Food"], answer: 1 },
-      { question: "HTML stands for?", choices: ["Markup","Code","Style"], answer: 0 },
-      { question: "Ocean or Sea?", choices: ["Desert","Water","Mountain"], answer: 1 },
-      { question: "Sun rises in?", choices: ["East","West","North"], answer: 0 },
+        { question: "What is the capital of France?", choices: ["Paris","Rome","London"], answer: 0 },
+        { question: "2 + 2 = ?", choices: ["3","4","5"], answer: 1 },
+        { question: "Color of the sky?", choices: ["Green","Blue","Red"], answer: 1 },
+        { question: "Python is a ___?", choices: ["Snake","Language","Food"], answer: 1 },
+        { question: "HTML stands for?", choices: ["Markup","Code","Style"], answer: 0 },
+        { question: "An ocean is made of?", choices: ["Desert","Water","Mountain"], answer: 1 },
+        { question: "The sun rises in the?", choices: ["East","West","North"], answer: 0 },
+    ];
+
+    this.questionIndex = 0;
+    this.correctCount = 0;
+    this.gameIsOver = false;
+    this.questionIsActive = false;
+
+    // Perspective settings - Define lane-specific spawn points
+    const spawnYCenter = height * 0.55;
+    const spawnYSides = height * 0.55;
+    const spawnXOffset = width * 0.04;
+    const spawnXOffsetSide = width * 0.02;
+
+    this.spawnPoints = [
+      { x: centerX - spawnXOffset, y: spawnYSides }, 
+      { x: centerX - 10, y: spawnYCenter },          
+      { x: centerX + spawnXOffsetSide, y: spawnYSides }  
     ];
     
-    this.questionIndex = 0;
-    this.baseScrollSpeed = 1.0; // Base speed multiplier
-    this.currentScrollSpeed = this.baseScrollSpeed;
-    this.spawnDelay = 3000;
-    this.correctCount = 0;
-    this.isPausedForQuestion = false;
-    this.activeLabels = []; // Track all active choice labels
+    this.randomObstacleStartScale = 0.05;
+    this.mcqStartScale = 0.08;            
+    
+    this.endY = height;
+    
+    // NEW: Separate speeds for different obstacle types
+    this.randomObstacleSpeed = 3.0; // Base speed for random obstacles, will increase
+    this.mcqSpeed = 1.8;            // Constant speed for MCQs
 
     // --- CONTROLS ---
-    // Arrow keys
     this.input.keyboard.on('keydown-LEFT', () => this.moveToLane(-1));
     this.input.keyboard.on('keydown-RIGHT', () => this.moveToLane(1));
-    
-    // WASD keys
     this.input.keyboard.on('keydown-A', () => this.moveToLane(-1));
     this.input.keyboard.on('keydown-D', () => this.moveToLane(1));
-    
-    // Space for jump (optional feature)
     this.input.keyboard.on('keydown-SPACE', () => this.jumpPlayer());
 
-    // Start first question after brief delay
-    this.time.delayedCall(2000, () => {
-      this.spawnMCQ();
-    }, [], this);
+    // --- TIMERS FOR SPAWNING ---
+    this.randomObstacleTimer = this.time.addEvent({
+      delay: 3500,
+      callback: this.spawnRandomObstacle,
+      callbackScope: this,
+      loop: true
+    });
+
+    this.mcqTimer = this.time.addEvent({
+      delay: 6500,
+      callback: this.spawnMCQ,
+      callbackScope: this,
+      loop: true
+    });
 
     console.log('GameScene setup complete! Ready to run!');
   }
 
+  /**
+   * @function update
+   * @description Main game loop, called on every frame.
+   * @param {number} time - The current time.
+   * @param {number} delta - The delta time in ms since the last frame.
+   */
   update(time, delta) {
-    const { width, height } = this.scale;
+    if (this.gameIsOver) return;
+    const deltaSeconds = delta / 1000;
 
-    // --- PARALLAX SCROLLING: Far background (subtle) ---
-    if (this.farBg) {
-      this.farBg.tilePositionY += 0.5 * this.currentScrollSpeed;
-    }
-
-    // --- PERSPECTIVE ANIMATION: WALLS (Zoom in + Move outward from center) ---
-    this.wallsGroup.forEach((wall, index) => {
-      // Move down (approaching player)
-      wall.y += 2.5 * this.currentScrollSpeed;
-      
-      // Scale up (getting closer)
-      wall.scaleX += 0.008 * this.currentScrollSpeed;
-      wall.scaleY += 0.008 * this.currentScrollSpeed;
-      
-      // Fade in as it approaches
-      wall.alpha = Math.min(1, wall.alpha + 0.006 * this.currentScrollSpeed);
-
-      // When wall gets too close/large, reset it to back of queue
-      if (wall.y > height * 1.2 || wall.scaleX > 2.5) {
-        wall.y = height / 2 - (height * 1.5);
-        wall.scaleX = 0.5;
-        wall.scaleY = 0.5;
-        wall.alpha = 0.3;
-      }
-    });
-
-    // --- PERSPECTIVE ANIMATION: CEILING (Zoom in + Move upward) ---
-    this.ceilingGroup.forEach((ceiling, index) => {
-      // Move upward (passing overhead)
-      ceiling.y -= 2.0 * this.currentScrollSpeed;
-      
-      // Scale up
-      ceiling.scaleX += 0.01 * this.currentScrollSpeed;
-      ceiling.scaleY += 0.01 * this.currentScrollSpeed;
-      
-      // Fade in
-      ceiling.alpha = Math.min(1, ceiling.alpha + 0.007 * this.currentScrollSpeed);
-
-      // Reset when it goes off top
-      const ceilingHeight = height * 0.4;
-      if (ceiling.y < -ceilingHeight || ceiling.scaleX > 2.5) {
-        ceiling.y = (ceilingHeight / 2) + (ceilingHeight * 1.2);
-        ceiling.scaleX = 0.5;
-        ceiling.scaleY = 0.5;
-        ceiling.alpha = 0.3;
-      }
-    });
-
-    // --- PERSPECTIVE ANIMATION: FLOOR TILES (Zoom in + Move downward) ---
-    this.tilesGroup.forEach((tile, index) => {
-      // Move downward (passing below)
-      tile.y += 3.0 * this.currentScrollSpeed;
-      
-      // Scale up (getting closer)
-      tile.scaleX += 0.012 * this.currentScrollSpeed;
-      tile.scaleY += 0.012 * this.currentScrollSpeed;
-      
-      // Fade in
-      tile.alpha = Math.min(1, tile.alpha + 0.008 * this.currentScrollSpeed);
-
-      // Reset when it goes off bottom
-      const floorHeight = height * 0.45;
-      const floorY = height - (floorHeight / 2);
-      if (tile.y > height + floorHeight || tile.scaleX > 2.5) {
-        tile.y = floorY - (floorHeight * 1.2);
-        tile.scaleX = 0.5;
-        tile.scaleY = 0.5;
-        tile.alpha = 0.3;
-      }
-    });
-
-    // --- SMOOTH LANE SWITCHING ---
-    if (this.player) {
+    // Player lane switching
+    if (this.player && this.player.active && !this.isJumping) {
       const targetX = this.lanes[this.currentLane];
       const diff = targetX - this.player.x;
-      
-      if (Math.abs(diff) > 1) {
-        // Smooth interpolation
-        this.player.x += diff * 0.15;
-        this.isMoving = true;
-      } else {
-        this.player.x = targetX;
-        this.isMoving = false;
-      }
+      if (Math.abs(diff) > 1) this.player.x += diff * 0.15;
+      else this.player.x = targetX;
     }
 
-    // --- UPDATE CHOICE LABELS TO FOLLOW OBSTACLES ---
-    this.activeLabels.forEach(labelData => {
-      if (labelData.obstacle.active && labelData.label.active) {
-        labelData.label.setPosition(labelData.obstacle.x, labelData.obstacle.y + 40);
+    // Update all obstacles
+    this.obstaclesArray = this.obstaclesArray.filter(obsData => {
+      if (!obsData.sprite || !obsData.sprite.active) {
+          return false;
       }
-    });
 
-    // Clean up inactive labels
-    this.activeLabels = this.activeLabels.filter(labelData => 
-      labelData.obstacle.active && labelData.label.active
-    );
+      if (obsData.handled) {
+          return true;
+      }
+      
+      // Use the correct speed based on the obstacle type
+      const currentSpeed = obsData.type === 'random' ? this.randomObstacleSpeed : this.mcqSpeed;
+      obsData.progress = Math.min(obsData.progress + currentSpeed * deltaSeconds * 0.1, 1.2);
+      
+      const newY = Phaser.Math.Linear(obsData.initialY, this.endY, obsData.progress);
+      const newX = Phaser.Math.Linear(obsData.initialX, obsData.targetX, obsData.progress);
+      const scale = Phaser.Math.Linear(obsData.startScale, obsData.endScale, obsData.progress);
+
+      obsData.sprite.x = newX;
+      obsData.sprite.y = newY;
+      obsData.sprite.setScale(scale);
+      obsData.sprite.setDepth(10 + Math.floor(newY / 10));
+      
+      if (newY > this.playerY - 80) {
+        this.checkCollision(obsData);
+      }
+
+      if (newY > this.endY + 50) {
+        obsData.sprite.destroy();
+        return false;
+      }
+      
+      return true;
+    });
+  }
+  
+  /**
+   * @function checkCollision
+   * @description Checks for collision between the player and an obstacle.
+   * @param {object} obsData - The obstacle data object.
+   */
+  checkCollision(obsData) {
+    const tolerance = 40 * obsData.sprite.scaleX;
+    if (Math.abs(obsData.sprite.x - this.player.x) < tolerance && !this.isJumping) {
+      this.handleCollision(obsData);
+    }
   }
 
+  /**
+   * @function moveToLane
+   * @description Moves the player to the left or right lane.
+   * @param {number} direction - -1 for left, 1 for right.
+   */
   moveToLane(direction) {
-    if (this.isPausedForQuestion) return;
-    
-    const newLane = this.currentLane + direction;
-    
-    // Clamp to valid lanes (0, 1, 2)
-    if (newLane >= 0 && newLane < this.lanes.length) {
+    if (this.gameIsOver) return;
+    const newLane = Phaser.Math.Clamp(this.currentLane + direction, 0, this.lanes.length - 1);
+    if (newLane !== this.currentLane) {
       this.currentLane = newLane;
-      
-      // Quick tilt animation for feedback
-      this.tweens.add({
-        targets: this.player,
-        angle: direction * 8,
-        duration: 120,
-        yoyo: true,
-        ease: 'Quad.easeOut'
-      });
-      
-      console.log('Moving to lane:', this.currentLane);
+      this.tweens.add({ targets: this.player, angle: direction * 8, duration: 120, yoyo: true, ease: 'Quad.easeOut' });
     }
   }
 
+  /**
+   * @function jumpPlayer
+   * @description Makes the player perform a jump.
+   */
   jumpPlayer() {
-    if (this.isPausedForQuestion || this.player.isJumping) return;
-    
-    this.player.isJumping = true;
-    const originalY = this.player.y;
-    
-    // Squash and stretch for jump
-    this.tweens.add({
-      targets: this.player,
-      scaleY: 1.15,
-      scaleX: 0.9,
-      duration: 100,
-      yoyo: true,
-      ease: 'Quad.easeOut'
-    });
-
-    this.tweens.add({
-      targets: this.player,
-      y: originalY - 120,
-      duration: 350,
-      yoyo: true,
-      ease: 'Quad.easeOut',
-      onComplete: () => {
-        this.player.isJumping = false;
-      }
-    });
+    if (this.gameIsOver || this.isJumping) return;
+    this.isJumping = true;
+    this.tweens.add({ targets: this.player, y: this.playerY - 120, duration: 350, yoyo: true, ease: 'Quad.easeOut', onComplete: () => { this.isJumping = false; this.player.y = this.playerY; } });
   }
 
-  spawnMCQ() {
-    if (this.lives <= 0) return;
+  /**
+   * @function spawnRandomObstacle
+   * @description Spawns a random, non-question obstacle in one of the three lanes.
+   */
+  spawnRandomObstacle() {
+    if (this.gameIsOver || this.questionIsActive) return;
+    
+    this.mcqTimer.paused = true;
+    
+    this.randomObstacleTimer.delay = Phaser.Math.Between(3200, 3500);
 
-    console.log('Spawning new MCQ...');
-
-    // Get current question
-    const q = this.questions[this.questionIndex % this.questions.length];
-    this.questionText.setText(q.question);
-
-    // Slow down background scroll for question
-    this.tweens.add({
-      targets: this,
-      currentScrollSpeed: this.baseScrollSpeed * 0.6,
-      duration: 800,
-      ease: 'Quad.easeOut'
-    });
-
-    // Clear previous obstacles and labels
-    this.obstacles.clear(true, true);
-    this.activeLabels.forEach(labelData => {
-      if (labelData.label) labelData.label.destroy();
-    });
-    this.activeLabels = [];
-
-    // Spawn position (off-screen top)
-    const spawnY = -100;
-    const obstacleSpeed = 180 + (this.correctCount * 15); // Gradually increase speed
-
-    // Spawn 3 obstacles (one per lane) with choices
-    for (let i = 0; i < 3; i++) {
-      const spriteKey = ['obstacle1', 'obstacle2', 'obstacle3'][i % 3];
-      const x = this.lanes[i];
+    const laneIndex = Phaser.Math.Between(0, 2);
+    const spriteKey = Phaser.Math.RND.pick(this.obstacleKeys);
+    const spawnPoint = this.spawnPoints[laneIndex];
+    
+    const obstacle = this.add.sprite(spawnPoint.x, spawnPoint.y, spriteKey)
+      .setOrigin(0.5)
+      .setScale(0)
+      .setDepth(10);
       
-      // Create obstacle
-      const obstacle = this.physics.add.sprite(x, spawnY, spriteKey)
-        .setOrigin(0.5)
-        .setScale(0.95)
-        .setDepth(45);
+    this.obstaclesArray.push({
+      sprite: obstacle,
+      type: 'random',
+      initialX: spawnPoint.x,
+      initialY: spawnPoint.y,
+      targetX: this.lanes[laneIndex],
+      startScale: this.randomObstacleStartScale, 
+      endScale: 0.6,
+      progress: 0,
+      handled: false
+    });
 
-      obstacle.body.setVelocityY(obstacleSpeed);
-      obstacle.choiceIndex = i;
-      obstacle.correct = (i === q.answer);
-      obstacle.questionId = this.questionIndex;
-
-      // Create choice label that follows obstacle
-      const label = this.add.text(x, spawnY + 40, q.choices[i], {
-        fontFamily: "'Press Start 2P', monospace",
-        fontSize: '15px',
-        color: '#1a1a1a',
-        backgroundColor: '#ffd700',
-        padding: { left: 8, right: 8, top: 4, bottom: 4 },
-        stroke: '#000000',
-        strokeThickness: 2
-      }).setOrigin(0.5)
-        .setDepth(50)
-        .setScrollFactor(0);
-
-      // Store label reference
-      this.activeLabels.push({ obstacle, label });
-
-      // Pop-in animation
-      obstacle.setScale(0.5);
-      obstacle.setAlpha(0);
-      this.tweens.add({
-        targets: obstacle,
-        scale: 0.95,
-        alpha: 1,
-        duration: 300,
-        ease: 'Back.easeOut'
-      });
-
-      this.obstacles.add(obstacle);
-    }
-
-    // Auto-advance after timeout if not answered
-    this.time.delayedCall(4500, () => {
-      // Clean up any remaining obstacles from this question
-      this.obstacles.getChildren().forEach(obs => {
-        if (obs.questionId === this.questionIndex) {
-          // Find and destroy label
-          const labelData = this.activeLabels.find(ld => ld.obstacle === obs);
-          if (labelData && labelData.label) {
-            labelData.label.destroy();
-          }
-          obs.destroy();
+    this.time.delayedCall(2000, () => {
+        if (!this.gameIsOver) {
+            this.mcqTimer.paused = false;
         }
-      });
-
-      // Speed up scrolling again
-      this.tweens.add({
-        targets: this,
-        currentScrollSpeed: Math.min(this.baseScrollSpeed + (this.correctCount * 0.15), 2.5),
-        duration: 600
-      });
-
-      // Next question
-      this.questionIndex++;
-      this.time.delayedCall(1500, () => {
-        if (this.lives > 0) this.spawnMCQ();
-      });
     });
   }
 
-  handleCollision(player, obstacle) {
-    if (!obstacle || obstacle._handled) return;
-    obstacle._handled = true;
+  /**
+   * @function spawnMCQ
+   * @description Spawns a set of multiple-choice question obstacles.
+   */
+  spawnMCQ() {
+    if (this.gameIsOver) return;
 
-    console.log('Collision! Choice:', obstacle.choiceIndex, 'Correct:', obstacle.correct);
+    this.questionIsActive = true;
+    this.randomObstacleTimer.paused = true;
 
-    // Find and remove label
-    const labelData = this.activeLabels.find(ld => ld.obstacle === obs);
-    if (labelData && labelData.label) {
-      labelData.label.destroy();
+    this.signboard.setVisible(true).setAlpha(0);
+    this.questionText.setVisible(true).setAlpha(0);
+    this.tweens.add({ targets: [this.signboard, this.questionText], alpha: 1, duration: 400 });
+
+    const q = this.questions[this.questionIndex % this.questions.length];
+    
+    const formattedQuestion = this.formatQuestionText(q.question, 20);
+    this.questionText.setText(formattedQuestion);
+
+    for (let i = 0; i < 3; i++) {
+      const laneX = this.lanes[i];
+      const spawnPoint = this.spawnPoints[i];
+      
+      const woodBg = this.add.image(0, 0, 'wood').setOrigin(0.5).setScale(2);
+      const choiceText = this.add.text(0, -50, q.choices[i], {
+        fontFamily: "'Press Start 2P', monospace",
+        fontSize: '45px',
+        color: '#ffffff',
+        stroke: '#402c1b',
+        strokeThickness: 4,
+        align: 'center'
+      }).setOrigin(0.5);
+
+      const choiceContainer = this.add.container(spawnPoint.x, spawnPoint.y, [woodBg, choiceText]);
+      choiceContainer.setSize(woodBg.displayWidth, woodBg.displayHeight);
+      choiceContainer.setScale(0).setDepth(11);
+
+      this.obstaclesArray.push({
+        sprite: choiceContainer,
+        type: 'choice',
+        initialX: spawnPoint.x,
+        initialY: spawnPoint.y,
+        targetX: laneX,
+        startScale: this.mcqStartScale, 
+        endScale: 0.8,
+        choiceIndex: i,
+        correct: (i === q.answer),
+        questionId: this.questionIndex,
+        progress: 0,
+        handled: false
+      });
     }
 
-    if (obstacle.correct) {
-      this.onCorrectAnswer(obstacle);
-    } else {
-      this.onWrongAnswer(obstacle);
-    }
+    this.questionIndex++;
+  }
+  
+  /**
+   * @function formatQuestionText
+   * @description Formats a string to have line breaks at a specific character length.
+   * @param {string} text - The text to format.
+   * @param {number} maxLength - The maximum length of a line.
+   * @returns {string} The formatted text with newlines.
+   */
+  formatQuestionText(text, maxLength) {
+    const words = text.split(' ');
+    let lines = [];
+    let currentLine = '';
 
-    obstacle.destroy();
+    words.forEach(word => {
+        if ((currentLine + word).length > maxLength) {
+            lines.push(currentLine.trim());
+            currentLine = '';
+        }
+        currentLine += word + ' ';
+    });
+
+    lines.push(currentLine.trim());
+    return lines.join('\n');
   }
 
-  onCorrectAnswer(obstacle) {
+  /**
+   * @function handleCollision
+   * @description Central handler for any collision event.
+   * @param {object} obsData - The obstacle data object.
+   */
+  handleCollision(obsData) {
+    if (obsData.handled) return;
+
+    if (obsData.type === 'choice') {
+        this.obstaclesArray.forEach(obs => {
+            if (obs.type === 'choice' && obs.questionId === obsData.questionId) {
+                obs.handled = true;
+            }
+        });
+
+        if (obsData.correct) {
+            this.onCorrectAnswer(obsData);
+        } else {
+            this.onWrongAnswer(obsData);
+        }
+    } else if (obsData.type === 'random') {
+        obsData.handled = true;
+        this.onHitRandomObstacle(obsData);
+    }
+  }
+  
+  /**
+   * @function onHitRandomObstacle
+   * @description Logic for when the player hits a random obstacle.
+   * @param {object} obsData - The obstacle data object.
+   */
+  onHitRandomObstacle(obsData) {
+    this.loseLife();
+    this.cameras.main.shake(250, 0.008);
+    this.tweens.add({ targets: obsData.sprite, scale: 0, alpha: 0, angle: 360, duration: 300, onComplete: () => { 
+        if (obsData.sprite && obsData.sprite.active) obsData.sprite.destroy(); 
+    }});
+  }
+
+  /**
+   * @function onCorrectAnswer
+   * @description Logic for when the player chooses the correct answer.
+   * @param {object} obsData - The obstacle data object.
+   */
+  onCorrectAnswer(obsData) {
     this.score += 100;
     this.correctCount++;
     this.scoreText.setText('SCORE: ' + String(this.score).padStart(3, '0'));
-
-    console.log('✓ Correct! Score:', this.score);
-
-    // Visual feedback
-    this.cameras.main.flash(150, 0, 255, 0, false, 0.3);
     
-    // Obstacle explosion effect
-    this.tweens.add({
-      targets: obstacle,
-      scale: 1.8,
-      alpha: 0,
-      angle: 360,
-      duration: 400,
-      ease: 'Power2'
-    });
+    // Speed for random obstacles increases with correct answers, up to a max cap.
+    this.randomObstacleSpeed = Math.min(this.randomObstacleSpeed + 1, 8.0); 
 
-    // Increase difficulty
-    this.baseScrollSpeed = Math.min(1.8, this.baseScrollSpeed + 0.1);
-
-    // Clear all obstacles from current question
-    this.obstacles.getChildren().forEach(obs => {
-      if (obs.questionId === obstacle.questionId && obs !== obstacle) {
-        const labelData = this.activeLabels.find(ld => ld.obstacle === obs);
-        if (labelData && labelData.label) {
-          labelData.label.destroy();
-        }
-        obs.destroy();
-      }
-    });
-
-    // Speed up scroll
-    this.tweens.add({
-      targets: this,
-      currentScrollSpeed: this.baseScrollSpeed,
-      duration: 500
-    });
-
-    // Next question
-    this.questionIndex++;
-    this.time.delayedCall(1000, () => {
-      if (this.lives > 0) this.spawnMCQ();
-    });
+    this.clearChoiceObstacles(obsData.questionId);
   }
 
-  onWrongAnswer(obstacle) {
+  /**
+   * @function onWrongAnswer
+   * @description Logic for when the player chooses the wrong answer.
+   * @param {object} obsData - The obstacle data object.
+   */
+  onWrongAnswer(obsData) {
+    this.loseLife();
+    this.cameras.main.shake(250, 0.008);
+    this.clearChoiceObstacles(obsData.questionId);
+  }
+  
+  /**
+   * @function loseLife
+   * @description Decrements player lives and updates the UI.
+   */
+  loseLife() {
+    if (this.gameIsOver) return;
     this.lives = Math.max(0, this.lives - 1);
     const lostHeart = this.hearts.pop();
     if (lostHeart) {
-      this.tweens.add({
-        targets: lostHeart,
-        scale: 0,
-        angle: 180,
-        duration: 300,
-        onComplete: () => lostHeart.destroy()
-      });
+      this.tweens.add({ targets: lostHeart, scale: 0, angle: 180, duration: 300, onComplete: () => lostHeart.destroy() });
     }
-
-    console.log('✗ Wrong! Lives remaining:', this.lives);
-
-    // Negative feedback
-    this.cameras.main.shake(250, 0.008);
-    this.cameras.main.flash(150, 255, 0, 0, false, 0.4);
-
-    // Obstacle shake
-    this.tweens.add({
-      targets: obstacle,
-      angle: '+=360',
-      scale: 0.5,
-      alpha: 0,
-      duration: 400,
-      ease: 'Power2'
-    });
-
-    // Check game over
+    console.log('Life lost! Lives remaining:', this.lives);
     if (this.lives <= 0) {
       this.gameOver();
-      return;
     }
+  }
 
-    // Continue with next question
-    this.questionIndex++;
+  /**
+   * @function clearChoiceObstacles
+   * @description Removes all MCQ obstacles related to a specific question.
+   * @param {number} questionId - The ID of the question to clear.
+   */
+  clearChoiceObstacles(questionId) {
+    // Hide the signboard and question text
+    this.tweens.add({
+        targets: [this.signboard, this.questionText],
+        alpha: 0,
+        duration: 200,
+        onComplete: () => {
+            this.questionText.setText('');
+            this.signboard.setVisible(false);
+            this.questionText.setVisible(false);
+        }
+    });
+
+    this.obstaclesArray.forEach(obs => {
+      if (obs.type === 'choice' && obs.questionId === questionId) {
+        // Since all choices are 'handled', the update loop will ignore them.
+        // We can now safely destroy them without causing a crash.
+        if (obs.sprite && obs.sprite.active) {
+            obs.sprite.destroy();
+        }
+      }
+    });
+
+    // Reset the question flag and resume the random obstacle timer
+    this.questionIsActive = false;
     this.time.delayedCall(1000, () => {
-      if (this.lives > 0) this.spawnMCQ();
+        if (!this.gameIsOver) {
+            this.randomObstacleTimer.paused = false;
+        }
     });
   }
 
+  /**
+   * @function gameOver
+   * @description Ends the game and redirects to the results page.
+   */
   gameOver() {
     console.log('GAME OVER! Final Score:', this.score);
+    this.gameIsOver = true;
     
-    this.isPausedForQuestion = true;
-    
-    // Stop scrolling
-    this.tweens.add({
-      targets: this,
-      currentScrollSpeed: 0,
-      duration: 1000
-    });
+    if (this.randomObstacleTimer) this.randomObstacleTimer.destroy();
+    if (this.mcqTimer) this.mcqTimer.destroy();
 
-    // Fade out
     this.cameras.main.fadeOut(1500, 0, 0, 0);
-    
     this.time.delayedCall(1500, () => {
-      // Redirect to results page
-      window.location.href = '/results.html?score=' + this.score;
+      window.location.href = '/results?score=' + this.score;
     });
   }
 }
 
 window.GameScene = GameScene;
+
