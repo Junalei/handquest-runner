@@ -112,6 +112,9 @@ class GameScene extends Phaser.Scene {
     this.currentLane = 1;
     this.isMoving = false;
     this.isJumping = false;
+    this.lastGesture = 'none';
+    this.moveCooldown = 350; // The delay in milliseconds between moves
+    this.lastMoveTime = 0;   // Timestamp of the last move
     // The vertical offset for collision detection, starting with the value for the center lane.
     this.collisionYOffset = 80;
 
@@ -222,8 +225,8 @@ class GameScene extends Phaser.Scene {
     this.endY = height;
     
     // NEW: Separate speeds for different obstacle types
-    this.randomObstacleSpeed = 3.0; // Base speed for random obstacles, will increase
-    this.mcqSpeed = 1.8;            // Constant speed for MCQs
+    this.randomObstacleSpeed = 2.5; // Base speed for random obstacles, will increase
+    this.mcqSpeed = 1.6;            // Constant speed for MCQs
 
     // --- CONTROLS ---
     this.input.keyboard.on('keydown-LEFT', () => this.moveToLane(-1));
@@ -258,6 +261,19 @@ class GameScene extends Phaser.Scene {
    */
   update(time, delta) {
     if (this.gameIsOver) return;
+
+    const gesture = window.currentAction || 'none';
+    if (gesture !== this.lastGesture && gesture !== 'none') {
+      if (gesture === 'left') {
+        this.moveToLane(-1);
+      } else if (gesture === 'right') {
+        this.moveToLane(1);
+      } else if (gesture === 'jump') {
+        this.jumpPlayer();
+      }
+    }
+    this.lastGesture = gesture;
+
     const deltaSeconds = delta / 1000;
 
     // Player lane switching
