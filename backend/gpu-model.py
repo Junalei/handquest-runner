@@ -140,7 +140,7 @@ def selective_stopword_removal(text: str) -> str:
     """Remove common stopwords while keeping important ones"""
     # Light stopword list (aggressive removal can hurt comprehension)
     stopwords = {'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
-                 'of', 'as', 'by', 'with', 'from', 'up', 'about', 'into', 'through', 'during'}
+                 'of', 'as', 'by', 'with', 'up', 'about', 'into', 'through', 'during'}
     
     words = text.split()
     filtered = []
